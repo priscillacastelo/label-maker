@@ -2,6 +2,7 @@ import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
 import textwrap
 import io
+import qrcode
 
 
 def create_rounded_rectangle(width, height, radius, fill):
@@ -66,6 +67,24 @@ def create_image(text_lines):
     return img
 
 
+def create_qr_code(data):
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    data_text = ''
+    for i in data:
+        data_text += (i + '\n')
+
+    qr.add_data(data_text)
+    qr.make(fit=True)
+
+    img_qr = qr.make_image(fill='black', back_color='white')
+    return img_qr
+
+
 st.set_page_config(
     page_title="Shipping Label Maker",
     page_icon="✉️",
@@ -80,18 +99,45 @@ line1 = st.text_input("Name", value="")
 line2 = st.text_input("Address - line 1", value="")
 line3 = st.text_input("Address - line 2", value="")
 
+confirm_checkbox = st.checkbox("Generate a QR code for this label ✅")
+
+
 if st.button("Generate Label"):
     text_lines = [line1, line2, line3]
     img = create_image(text_lines)
+    qr_image = create_qr_code(text_lines)
+    qr_image_crop = qr_image.crop()
+
     file_name = f"{line1.replace(' ', '_')}.png"
+    file_name_qr = f"{line1.replace(' ', '_')}_qr.png"
+    
 
     img_byte_arr = io.BytesIO()
     img.save(img_byte_arr, format='PNG')
     img_byte_arr = img_byte_arr.getvalue()
 
-    st.image(img, caption="Generated Label", use_column_width=True)
+    qr_byte_arr = io.BytesIO()
+    qr_image_crop.save(qr_byte_arr, format='PNG')
+    qr_byte_arr = qr_byte_arr.getvalue()
 
-    st.download_button(label="Download Label",
-                       data=img_byte_arr,
-                       file_name=file_name,
-                       mime="image/png")
+    if confirm_checkbox:
+        st.image(img, caption="Generated Label", use_column_width=True)
+
+        st.download_button(label="Download Label",
+                        data=img_byte_arr,
+                        file_name=file_name,
+                        mime="image/png")
+        
+        st.image(qr_image_crop, caption="Generated qr code", use_column_width=True)
+
+        st.download_button(label="Download qr code",
+                        data=qr_byte_arr,
+                        file_name=file_name_qr,
+                        mime="image/png")
+    else:
+        st.image(img, caption="Generated Label", use_column_width=True)
+
+        st.download_button(label="Download Label",
+                        data=img_byte_arr,
+                        file_name=file_name,
+                        mime="image/png")
